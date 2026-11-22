@@ -74,7 +74,7 @@ const flow = computed<FlowRaw | undefined>({
 
 		return merge({}, existing, {
 			status: stagedFlow.value?.status ?? existing.status,
-			operation: stagedFlow.value?.operation ?? existing.operation,
+			operation: stagedFlow.value?.operation !== undefined ? stagedFlow.value.operation : existing.operation,
 			operations: stagedFlow.value?.operations ?? existing.operations,
 		});
 	},
@@ -93,6 +93,13 @@ function stageStatus(status: FlowRaw['status']) {
 	const rest = omit(stagedFlow.value, 'status');
 
 	stagedFlow.value = status === existing?.status ? rest : { ...rest, status };
+}
+
+function stageFlowOperation(operation: FlowRaw['operation']) {
+	const existing = flowsStore.flows.find((flow) => flow.id === props.primaryKey);
+	const rest = omit(stagedFlow.value, 'operation');
+
+	stagedFlow.value = (operation ?? null) === (existing?.operation ?? null) ? rest : { ...rest, operation };
 }
 
 const backTo = computed(() => {
@@ -463,7 +470,7 @@ async function deletePanel(id: string) {
 	}
 
 	if (flow.value.operation === id) {
-		stagedFlow.value = { operation: null };
+		stageFlowOperation(null);
 	} else {
 		const parent = parentPanels.value[id];
 
@@ -550,7 +557,7 @@ function arrowStop() {
 
 	if (currentlyConnected) {
 		if (currentlyConnected.id === '$trigger') {
-			flow.value = merge({}, flow.value, { operation: null });
+			stageFlowOperation(null);
 		} else {
 			stageOperationEdits({
 				edits: {
@@ -562,7 +569,7 @@ function arrowStop() {
 	}
 
 	if (arrowInfo.value.id === '$trigger') {
-		flow.value = merge({}, flow.value, { operation: nearPanel ?? null });
+		stageFlowOperation(nearPanel ?? null);
 	} else {
 		stageOperationEdits({
 			edits: {
@@ -601,7 +608,9 @@ function getNearAttachment(pos: Vector2) {
 
 // ------------- Navigation Guard ------------- //
 
-const hasEdits = computed(() => stagedPanels.value.length > 0 || panelsToBeDeleted.value.length > 0);
+const hasEdits = computed(
+	() => stagedPanels.value.length > 0 || panelsToBeDeleted.value.length > 0 || !isEmpty(stagedFlow.value),
+);
 
 const { confirmLeave, leaveTo } = useEditsGuard(hasEdits, {
 	ignorePrefix: computed(() => `/flows/${props.primaryKey}`),
